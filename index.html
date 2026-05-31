@@ -265,10 +265,12 @@
   .iq-confirm .ok svg{width:28px;height:28px;color:var(--navy)}
   .iq-confirm h3{font-size:1.4rem;margin-bottom:8px}
   .iq-confirm p{color:var(--ink-soft);font-size:.95rem}
+  .iq-error{display:none;color:#b3261e;font-size:.86rem;line-height:1.5;margin-top:14px;text-align:center}
+  .iq-error.show{display:block}
 
   /* ---------- FOOTER ---------- */
   footer{background:var(--navy-deep);color:#B9C6D8;padding:64px 0 28px}
-  .foot-grid{display:grid;grid-template-columns:1.6fr 1fr 1fr;gap:48px;padding-bottom:42px;border-bottom:1px solid rgba(255,255,255,.12)}
+  .foot-grid{display:grid;grid-template-columns:1.6fr 1fr;gap:48px;padding-bottom:42px;border-bottom:1px solid rgba(255,255,255,.12)}
   .foot-brand .fb-name{font-family:var(--serif);font-size:1.5rem;font-weight:600;color:#fff}
   .foot-brand .fb-sub{font-size:.64rem;letter-spacing:.24em;text-transform:uppercase;color:rgba(255,255,255,.55);display:block;margin-top:6px}
   .foot-brand p{font-size:.92rem;margin-top:16px;max-width:34ch;color:#9DAEC4}
@@ -613,6 +615,7 @@
             </div>
           </div>
           <button class="btn btn-primary btn-block" id="iqSubmit">Send inquiry</button>
+          <p class="iq-error" id="iqError"></p>
         </div>
         <div class="iq-confirm" id="iqConfirm">
           <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
@@ -643,17 +646,10 @@
         <a href="#contact">Book a visit</a>
         <a href="#contact">Contact</a>
       </div>
-      <div class="foot-col">
-        <h5>Reach me</h5>
-        <p>JChanNotaryServices@gmail.com</p>
-        <p>713-364-6321</p>
-        <p>Houston · Austin · Dallas · San Antonio</p>
-        <p>Mon–Sun · 7am–9pm</p>
-      </div>
     </div>
     <p class="disclaimer">
       <svg class="foot-seal" viewBox="0 0 100 100" fill="none"><circle cx="50" cy="50" r="46" stroke="currentColor" stroke-width="3"/><text x="50" y="62" text-anchor="middle" font-family="Fraunces,serif" font-size="30" font-weight="600" fill="currentColor">JC</text></svg>
-      JChan Notary Services is a notary public commissioned by the State of Texas (Commission #00000000 · expires 00/00/0000). A notary public is not an attorney and may not give legal advice, accept fees for legal advice, prepare legal documents, or select documents for a particular legal matter. If you need legal help, please consult a licensed Texas attorney. Fees for notarial acts are limited by Texas Government Code § 406.024 and Texas Estates Code § 255.004; mobile and travel fees are separate and quoted in advance. Prices subject to change without notice.
+      JChan Notary Services is a notary public commissioned by the State of Texas (Commission #135554388 · expires 4/10/2030). A notary public is not an attorney and may not give legal advice, accept fees for legal advice, prepare legal documents, or select documents for a particular legal matter. If you need legal help, please consult a licensed Texas attorney. Fees for notarial acts are limited by Texas Government Code § 406.024 and Texas Estates Code § 255.004; mobile and travel fees are separate and quoted in advance. Prices subject to change without notice.
     </p>
     <div class="foot-bottom">
       <span>© <span id="yr"></span> JChan Notary Services. All rights reserved.</span>
@@ -665,6 +661,14 @@
 <script>
 (function(){
   "use strict";
+
+  /* ===================================================================
+     WEB3FORMS SETUP: paste your free Access Key between the quotes below.
+     Get it at https://web3forms.com  (enter JChanNotaryServices@gmail.com,
+     copy the Access Key it shows). Submissions then email you automatically.
+     =================================================================== */
+  var WEB3FORMS_KEY = "655a0f6e-8cd5-41b0-9927-e01637eb89c0";
+
   document.getElementById('yr').textContent = new Date().getFullYear();
 
   var nav = document.getElementById('nav');
@@ -715,9 +719,46 @@
     if(!msg){showErr('iMsg');ok=false;}
     if(!ok){ var fi=document.querySelector('#iqForm .field.invalid'); if(fi) fi.scrollIntoView({behavior:'smooth',block:'center'}); return; }
     var pref=(prefBox.querySelector('input:checked')||{}).value || 'Phone';
-    document.getElementById('iqMsgOut').textContent = 'Thanks, '+name+' — I\'ll reply the same business day by '+pref.toLowerCase()+'.';
-    document.getElementById('iqForm').style.display='none';
-    document.getElementById('iqConfirm').classList.add('show');
+    var submitBtn=document.getElementById('iqSubmit');
+    var errEl=document.getElementById('iqError');
+    errEl.classList.remove('show');
+
+    if(WEB3FORMS_KEY==='YOUR_WEB3FORMS_ACCESS_KEY'){
+      errEl.textContent='This form isn\'t connected yet — add your Web3Forms access key in the site code.';
+      errEl.classList.add('show');
+      return;
+    }
+
+    submitBtn.disabled=true; submitBtn.textContent='Sending…';
+    fetch('https://api.web3forms.com/submit',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Accept':'application/json'},
+      body:JSON.stringify({
+        access_key:WEB3FORMS_KEY,
+        subject:'New website inquiry — '+subj,
+        from_name:name,
+        name:name,
+        email:email,
+        phone:phone,
+        preferred_contact:pref,
+        message:msg,
+        botcheck:''
+      })
+    }).then(function(r){return r.json();}).then(function(data){
+      submitBtn.disabled=false; submitBtn.textContent='Send inquiry';
+      if(data && data.success){
+        document.getElementById('iqMsgOut').textContent='Thanks, '+name+' — I\'ll reply the same business day by '+pref.toLowerCase()+'.';
+        document.getElementById('iqForm').style.display='none';
+        document.getElementById('iqConfirm').classList.add('show');
+      } else {
+        errEl.textContent='Sorry — your message could not be sent. Please email JChanNotaryServices@gmail.com directly.';
+        errEl.classList.add('show');
+      }
+    }).catch(function(){
+      submitBtn.disabled=false; submitBtn.textContent='Send inquiry';
+      errEl.textContent='Network error — please check your connection, or email JChanNotaryServices@gmail.com directly.';
+      errEl.classList.add('show');
+    });
   });
 
   document.getElementById('iqReset').addEventListener('click', function(){
